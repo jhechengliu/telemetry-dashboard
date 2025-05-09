@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telemetry Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <div id="status-indicator" class="offline"></div>
+  <h1>Telemetry Dashboard</h1>
+  
+  <div class="section">
+    <h2 class="section-title">Temperature</h2>
+    <div id="grid-temperature" class="grid">
+      <div class="label">Highest Temp</div>
+      <div id="highest_temp" class="value">---</div>
+      <div class="label">Lowest Temp</div>
+      <div id="lowest_temp" class="value">---</div>
+    </div>
+  </div>
+  
+  <div class="section">
+    <h2 class="section-title">Battery</h2>
+    <div id="grid-battery" class="grid">
+      <div class="label">Highest Cell mV</div>
+      <div id="highest_cell_mv" class="value">---</div>
+      <div class="label">Lowest Cell mV</div>
+      <div id="lowest_cell_mv" class="value">---</div>
+      <div class="label">Average Cell mV</div>
+      <div id="average_cell_mv" class="value">---</div>
+    </div>
+  </div>
+  
+  <div class="section">
+    <h2 class="section-title">System</h2>
+    <div id="grid-system" class="grid">
+      <div class="label">TS Voltage</div>
+      <div id="ts_voltage" class="value">---</div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let connectionTimeout;
+    
+    // Define thresholds for warning and danger levels
+    const thresholds = {
+      highest_temp: { warning: 45, danger: 55 },
+      lowest_temp: { warning: 5, danger: 0 },
+      highest_cell_mv: { warning: 4100, danger: 4200 },
+      lowest_cell_mv: { warning: 3800, danger: 3700 },
+      ts_voltage: { warning: 290, danger: 295 }
+    };
+    
+    // Connect status indicator
+    socket.on("connect", () => {
+      document.getElementById("status-indicator").classList.remove("offline");
+      clearTimeout(connectionTimeout);
+    });
+    
+    socket.on("disconnect", () => {
+      document.getElementById("status-indicator").classList.add("offline");
+    });
+    
+    socket.on("update", payload => {
+      const el = document.getElementById(payload.name);
+      if (el) {
+        // Format value to two decimal places and add unit
+        el.textContent = payload.value.toFixed(2) + " " + payload.unit;
+        
+        // Remove all state classes
+        el.classList.remove("warning", "danger", "success");
+        
+        // Apply threshold-based styling
+        if (thresholds[payload.name]) {
+          const thresholdValues = thresholds[payload.name];
+          
+          if (payload.name.includes("highest") && payload.value >= thresholdValues.danger) {
+            el.classList.add("danger");
+          } else if (payload.name.includes("highest") && payload.value >= thresholdValues.warning) {
+            el.classList.add("warning");
+          } else if (payload.name.includes("lowest") && payload.value <= thresholdValues.danger) {
+            el.classList.add("danger");
+          } else if (payload.name.includes("lowest") && payload.value <= thresholdValues.warning) {
+            el.classList.add("warning");
+          } else {
+            el.classList.add("success");
+          }
+        }
+        
+        // Add highlight animation
+        el.classList.add("updated");
+        setTimeout(() => {
+          el.classList.remove("updated");
+        }, 1000);
+      }
+    });
+    
+    // Check connection status every 5 seconds
+    function checkConnection() {
+      connectionTimeout = setTimeout(() => {
+        if (!socket.connected) {
+          document.getElementById("status-indicator").classList.add("offline");
+        }
+        checkConnection();
+      }, 5000);
+    }
+    
+    checkConnection();
+  </script>
+</body>
+</html>

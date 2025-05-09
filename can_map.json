@@ -1,0 +1,51 @@
+{
+  "0x100": {
+    "name": "Temperature_Status",
+    "signals": [
+      { "name": "highest_temp", "start": 0, "length": 2, "scale": 0.1, "unit": "°C", "description": "Highest temperature reading" },
+      { "name": "lowest_temp", "start": 2, "length": 2, "scale": 0.1, "unit": "°C", "description": "Lowest temperature reading" }
+    ]
+  },
+  "0x101": {
+    "name": "Cell_Voltages",
+    "signals": [
+      { "name": "highest_cell_mv", "start": 0, "length": 2, "scale": 1, "unit": "mV", "description": "Highest cell voltage" },
+      { "name": "lowest_cell_mv", "start": 2, "length": 2, "scale": 1, "unit": "mV", "description": "Lowest cell voltage" },
+      { "name": "average_cell_mv", "start": 4, "length": 2, "scale": 1, "unit": "mV", "description": "Average cell voltage" }
+    ]
+  },
+  "0x102": {
+    "name": "System_Voltage",
+    "signals": [
+      { "name": "ts_voltage", "start": 0, "length": 2, "scale": 0.001, "unit": "V", "description": "Tractive System voltage" }
+    ]
+  },
+  "0x103": {
+    "name": "Current_Status",
+    "signals": [
+      { "name": "current", "start": 0, "length": 2, "scale": 0.1, "unit": "A", "description": "Current flow" },
+      { "name": "power", "start": 2, "length": 4, "scale": 1, "unit": "W", "description": "Power consumption" }
+    ]
+  },
+  "0x104": {
+    "name": "State_Of_Charge",
+    "signals": [
+      { "name": "soc", "start": 0, "length": 1, "scale": 1, "unit": "%", "description": "Battery state of charge" },
+      { "name": "soh", "start": 1, "length": 1, "scale": 1, "unit": "%", "description": "Battery state of health" }
+    ]
+  },
+  "0x105": {
+    "name": "Motor_Status",
+    "signals": [
+      { "name": "motor_rpm", "start": 0, "length": 2, "scale": 1, "unit": "RPM", "description": "Motor RPM" },
+      { "name": "motor_temp", "start": 2, "length": 2, "scale": 0.1, "unit": "°C", "description": "Motor temperature" }
+    ]
+  },
+  "0x106": {
+    "name": "Vehicle_Status",
+    "signals": [
+      { "name": "speed", "start": 0, "length": 2, "scale": 0.1, "unit": "km/h", "description": "Vehicle speed" },
+      { "name": "acceleration", "start": 2, "length": 2, "scale": 0.01, "unit": "g", "description": "Vehicle acceleration" }
+    ]
+  }
+}
