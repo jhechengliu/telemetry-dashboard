@@ -41,38 +41,122 @@ h1 {
   border-bottom: 3px solid var(--secondary-color);
 }
 
-#grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  padding: 20px;
+/* Battery Groups Styling */
+.battery-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.battery-group {
   background-color: var(--panel-bg);
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  background-color: var(--primary-color);
+  color: white;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.3s;
+}
+
+.group-header:hover {
+  background-color: #34495e;
+}
+
+.group-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  flex-grow: 1;
+}
+
+.group-status {
+  margin: 0 15px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.group-status.success {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.group-status.warning {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.group-status.danger {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+.toggle-icon {
+  font-size: 0.8rem;
+  transition: transform 0.3s;
+}
+
+.group-content {
+  padding: 20px;
+  display: none;
+}
+
+.group-content h3 {
+  color: var(--primary-color);
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+/* Voltage Grid */
+.voltage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.voltage-cell {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: rgba(52, 152, 219, 0.05);
+  border-radius: 4px;
+}
+
+/* Temperature Grid */
+.temperature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.temperature-cell {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: rgba(52, 152, 219, 0.05);
+  border-radius: 4px;
 }
 
 .label {
   font-weight: 600;
   color: var(--primary-color);
-  padding: 10px 15px;
-  border-radius: 5px;
-  background-color: rgba(52, 152, 219, 0.1);
-  display: flex;
-  align-items: center;
 }
 
 .value {
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   color: var(--secondary-color);
-  padding: 10px 15px;
-  border-radius: 5px;
-  background-color: rgba(52, 152, 219, 0.05);
-  text-align: right;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  transition: background-color 0.3s, color 0.3s;
+  transition: all 0.3s;
 }
 
 .value.updated {
@@ -81,40 +165,19 @@ h1 {
 
 @keyframes highlight {
   0% { background-color: rgba(52, 152, 219, 0.5); }
-  100% { background-color: rgba(52, 152, 219, 0.05); }
+  100% { background-color: transparent; }
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
-  #grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-  
-  .label, .value {
-    padding: 8px 12px;
-  }
-  
-  h1 {
-    font-size: 1.8rem;
-    margin-bottom: 20px;
-  }
-}
-
-/* Additional styling for alert thresholds */
 .value.warning {
   color: var(--warning-color);
-  background-color: rgba(243, 156, 18, 0.1);
 }
 
 .value.danger {
   color: var(--danger-color);
-  background-color: rgba(231, 76, 60, 0.1);
 }
 
 .value.success {
   color: var(--success-color);
-  background-color: rgba(46, 204, 113, 0.1);
 }
 
 /* Status indicator */
@@ -132,15 +195,23 @@ h1 {
   background-color: var(--danger-color);
 }
 
-/* Dashboard sections */
-.section {
-  margin-bottom: 20px;
-}
-
-.section-title {
-  font-size: 1.2rem;
-  color: var(--primary-color);
-  margin-bottom: 10px;
-  padding-left: 10px;
-  border-left: 3px solid var(--secondary-color);
+/* Responsive design */
+@media (max-width: 768px) {
+  .voltage-grid,
+  .temperature-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .group-header {
+    padding: 12px;
+  }
+  
+  .group-title {
+    font-size: 1.1rem;
+  }
+  
+  h1 {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+  }
 }

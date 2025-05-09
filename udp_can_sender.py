@@ -23,21 +23,21 @@ DEFAULT_TARGET_PORT = 1234
 DEFAULT_RATE_HZ = 10
 
 # Signal states and parameters
+class GroupState:
+    def __init__(self, group_num):
+        self.group_num = group_num
+        # Initialize 12 battery voltages
+        self.voltages = [random.uniform(3800, 4000) for _ in range(12)]
+        # Initialize 5 temperatures
+        self.temperatures = [random.uniform(25, 35) for _ in range(5)]
+        # Trends for realistic simulation
+        self.voltage_trends = [random.uniform(-1, 1) for _ in range(12)]
+        self.temp_trends = [random.uniform(-0.5, 0.5) for _ in range(5)]
+
 class SignalState:
     def __init__(self):
-        # Temperature parameters
-        self.temp_trend = 0  # Direction of temperature change
-        self.hi_temp = 40.0  # Starting temperature
-        self.lo_temp = 30.0  # Starting temperature
-        
-        # Voltage parameters
-        self.voltage_trend = 0  # Direction of voltage change
-        self.hi_cell_mv = 4050  # Starting cell voltage
-        self.lo_cell_mv = 3950  # Starting cell voltage
-        
-        # System voltage
-        self.ts_voltage = 290.0  # Starting system voltage
-        
+        # Initialize 10 groups
+        self.groups = [GroupState(i+1) for i in range(10)]
         # Simulation parameters
         self.running = True
         self.packets_sent = 0
@@ -72,43 +72,25 @@ def signal_handler(sig, frame):
 
 def simulate_step(state, time_delta):
     """Update all signal values to simulate real-world behavior"""
-    # Update temperature trends
-    if random.random() < 0.05:
-        state.temp_trend = random.uniform(-1, 1)
-    
-    # Apply temperature changes
-    state.hi_temp += state.temp_trend * time_delta * 2
-    state.lo_temp += state.temp_trend * time_delta
-    
-    # Keep temperatures within reasonable bounds
-    state.hi_temp = max(30, min(60, state.hi_temp))
-    state.lo_temp = max(20, min(45, state.lo_temp))
-    
-    # Ensure highest temp is actually higher than lowest
-    if state.hi_temp < state.lo_temp + 5:
-        state.hi_temp = state.lo_temp + 5
-    
-    # Update voltage trends
-    if random.random() < 0.1:
-        state.voltage_trend = random.uniform(-1, 1)
-    
-    # Apply voltage changes
-    voltage_delta = state.voltage_trend * time_delta * 10
-    state.hi_cell_mv += voltage_delta
-    state.lo_cell_mv += voltage_delta
-    
-    # Keep voltages within reasonable bounds
-    state.hi_cell_mv = max(3900, min(4200, state.hi_cell_mv))
-    state.lo_cell_mv = max(3700, min(4100, state.lo_cell_mv))
-    
-    # Ensure highest voltage is actually higher than lowest
-    if state.hi_cell_mv < state.lo_cell_mv + 50:
-        state.hi_cell_mv = state.lo_cell_mv + 50
-    
-    # Simulate system voltage
-    state.ts_voltage += random.uniform(-0.5, 0.5)
-    state.ts_voltage = max(280, min(300, state.ts_voltage))
-    
+    for group in state.groups:
+        # Update voltage trends randomly
+        for i in range(12):
+            if random.random() < 0.1:
+                group.voltage_trends[i] = random.uniform(-1, 1)
+            # Apply voltage changes
+            group.voltages[i] += group.voltage_trends[i] * time_delta * 5
+            # Keep within reasonable bounds
+            group.voltages[i] = max(3700, min(4200, group.voltages[i]))
+
+        # Update temperature trends randomly
+        for i in range(5):
+            if random.random() < 0.05:
+                group.temp_trends[i] = random.uniform(-0.5, 0.5)
+            # Apply temperature changes
+            group.temperatures[i] += group.temp_trends[i] * time_delta
+            # Keep within reasonable bounds
+            group.temperatures[i] = max(20, min(60, group.temperatures[i]))
+
     return state
 
 def run_simulation(target_ip, target_port, rate_hz):
@@ -138,26 +120,32 @@ def run_simulation(target_ip, target_port, rate_hz):
             # Update simulation state
             state = simulate_step(state, time_delta)
             
-            # Create and send CAN frames
+            # Create and send CAN frames for each group
             try:
-                # Temperature frame (ID 0x100)
-                data_100 = phys_to_raw(state.hi_temp, 0.1) + phys_to_raw(state.lo_temp, 0.1)
-                frame_100 = build_frame(0x100, data_100)
-                sock.sendto(frame_100.encode(), (target_ip, target_port))
-                
-                # Cell voltage frame (ID 0x101)
-                avg_mv = (state.hi_cell_mv + state.lo_cell_mv) // 2
-                data_101 = phys_to_raw(state.hi_cell_mv, 1) + phys_to_raw(state.lo_cell_mv, 1) + phys_to_raw(avg_mv, 1)
-                frame_101 = build_frame(0x101, data_101)
-                sock.sendto(frame_101.encode(), (target_ip, target_port))
-                
-                # System voltage frame (ID 0x102)
-                data_102 = phys_to_raw(state.ts_voltage, 0.01)
-                frame_102 = build_frame(0x102, data_102)
-                sock.sendto(frame_102.encode(), (target_ip, target_port))
+                for group in state.groups:
+                    # Send voltages (3 frames per group, 4 voltages per frame)
+                    for i in range(0, 12, 4):
+                        can_id = 0x100 + (group.group_num * 10) + (i // 4)
+                        data = b''
+                        for j in range(4):
+                            if i + j < 12:
+                                data += phys_to_raw(group.voltages[i + j], 1)
+                            else:
+                                data += b'\x00\x00'
+                        frame = build_frame(can_id, data)
+                        sock.sendto(frame.encode(), (target_ip, target_port))
+                        state.packets_sent += 1
+
+                    # Send temperatures (1 frame per group, all 5 temperatures)
+                    can_id = 0x100 + (group.group_num * 10) + 3
+                    data = b''
+                    for temp in group.temperatures:
+                        data += phys_to_raw(temp, 0.1)
+                    frame = build_frame(can_id, data)
+                    sock.sendto(frame.encode(), (target_ip, target_port))
+                    state.packets_sent += 1
                 
                 # Update statistics
-                state.packets_sent += 3
                 state.time_elapsed = time.time() - start_time
                 
             except socket.error as e:
