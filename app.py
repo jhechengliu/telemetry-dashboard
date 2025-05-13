@@ -51,7 +51,7 @@ can_map = load_can_map()
 # Initialize Flask application
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'telemetry-dashboard-secret'
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
+socketio = SocketIO(app, async_mode='threading', cors_allowed_origins='*')
 
 # Data storage
 latest_values = {}  # Store the latest values for each signal
@@ -124,7 +124,12 @@ def process_can(can_id: int, data: bytes):
     
     try:
         mapping = can_map[can_id]['signals']
+        pack_id = data[0]  # First byte is always pack_id
+        
         for sig in mapping:
+            if sig['name'] == 'pack_id':
+                continue  # Skip pack_id as we already have it
+                
             name = sig['name']
             start, length = sig['start'], sig['length']
             
@@ -138,15 +143,29 @@ def process_can(can_id: int, data: bytes):
             scale = sig.get('scale', 1)
             phys = raw_val * scale
             
+            # Convert signal name to frontend format with dash
+            if name.startswith('cell_'):
+                num = name.split('_')[1]
+                frontend_name = f"voltage-{num}"
+            elif name.startswith('temp_'):
+                num = name.split('_')[1]
+                frontend_name = f"temp-{num}"
+            else:
+                frontend_name = name
+            
+            # Create signal name with group number
+            group_signal_name = f"group-{pack_id}-{frontend_name}"
+            
             # Create payload for the frontend
             payload = {
-                "name": name,
+                "name": group_signal_name,
                 "value": phys,
                 "unit": sig.get('unit', ''),
                 "timestamp": time.time()
             }
             
             update_queue.put(payload)
+            logger.debug(f"Processed signal: {group_signal_name} = {phys} {sig.get('unit', '')}")
         
         stats['packets_processed'] += 1
     
@@ -165,6 +184,7 @@ def socketio_forwarder():
             
             # Send to all connected clients
             socketio.emit("update", payload)
+            #logger.info(f"Emitted update: {payload['name']} = {payload['value']}")
             
         except Empty:
             # No data in queue, just continue

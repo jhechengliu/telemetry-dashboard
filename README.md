@@ -1,9 +1,8 @@
-
-# Telemetry Dashboard — Real-Time CAN Data Display
+# Battery Telemetry Dashboard — Real-Time CAN Data Display
 
 ## Overview
 
-This project provides a real-time web-based dashboard for monitoring CAN bus data sent from an ESP32 over UDP. The system uses Flask and Flask-SocketIO to receive, decode, and display values live in a browser. It supports flexible signal mapping via a JSON configuration and can simulate CAN data for testing purposes.
+This project provides a real-time web-based dashboard for monitoring battery pack data sent over UDP. The system uses Flask and Flask-SocketIO to receive, decode, and display values live in a browser. It supports monitoring of 10 battery groups, each containing 12 voltage readings and 5 temperature sensors, with collapsible UI sections for better organization.
 
 ---
 
@@ -24,23 +23,26 @@ This project provides a real-time web-based dashboard for monitoring CAN bus dat
 ## 1. System Architecture
 
 ```
-ESP32 (CAN → UDP) ──> [UDP Listener Thread] ──> [Flask + SocketIO] ──> [Browser Dashboard]
+[UDP Listener Thread] ──> [Flask + SocketIO] ──> [Browser Dashboard]
 ```
 
-- ESP32 reads CAN messages and transmits over UDP.
-- Flask runs a background thread to listen for UDP packets.
-- Parsed values are forwarded to the frontend using WebSockets (Socket.IO).
-- The dashboard updates UI elements instantly when new values arrive.
+- UDP packets contain CAN messages with battery data
+- Flask runs a background thread to listen for UDP packets
+- Parsed values are forwarded to the frontend using WebSockets (Socket.IO)
+- The dashboard updates UI elements instantly when new values arrive
+- Data is organized into collapsible battery groups
 
 ---
 
 ## 2. Key Features
 
-- **Live updates** via WebSocket (no polling).
-- **Flexible CAN signal parsing** through a `can_map.json` file.
-- **Easy to test** with built-in UDP simulator.
-- **Minimal dependencies**: Flask, Flask-SocketIO, Eventlet.
-- Mobile-friendly and lightweight frontend.
+- **Battery Group Monitoring**: 10 groups with 12 voltages and 5 temperatures each
+- **Collapsible UI**: Expand/collapse battery groups for better organization
+- **Live updates** via WebSocket (no polling)
+- **Flexible CAN signal parsing** through a `can_map.json` file
+- **Easy to test** with built-in UDP simulator
+- **Minimal dependencies**: Flask, Flask-SocketIO, Eventlet
+- Mobile-friendly and responsive design
 
 ---
 
@@ -57,7 +59,10 @@ telemetry-dashboard/
 │   └── index.html         # The main dashboard UI
 │
 └── static/
-    └── style.css          # CSS styling for the dashboard
+    ├── css/
+    │   └── style.css      # CSS styling for the dashboard
+    └── js/
+        └── main.js        # Frontend JavaScript code
 ```
 
 ---
@@ -75,8 +80,8 @@ telemetry-dashboard/
 cd telemetry-dashboard
 
 # (Optional) Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install required packages
 pip install flask flask-socketio eventlet
@@ -88,38 +93,49 @@ pip install flask flask-socketio eventlet
 
 ### Start the Flask server
 ```bash
-python app.py
+python3 app.py
 ```
 
 ### Access the dashboard
 Open your browser to:
 ```
-http://localhost:5000
+http://localhost:5001
 ```
 
-You will see a simple dashboard with real-time fields such as:
-- Highest Temp.
-- Lowest Temp.
-- Highest/Lowest/Average Cell Voltage
-- TS Voltage
+You will see a dashboard with:
+- 10 collapsible battery groups
+- 12 voltage readings per group
+- 5 temperature readings per group
+- Connection status and statistics
 
 ### (Optional) Simulate data for testing
 ```bash
-python udp_can_sender.py
+python3 udp_can_sender.py
 ```
 
 ---
 
 ## 6. CAN Signal Mapping (`can_map.json`)
 
-The `can_map.json` file allows flexible mapping of CAN IDs and data layouts. Example:
+The `can_map.json` file defines the CAN message structure for battery data. Example:
 
 ```json
 {
-  "0x100": {
+  "0x12905301": {
+    "name": "CV1",
+    "description": "Cell Voltages 1-3",
     "signals": [
-      { "name": "highest_temp", "start": 0, "length": 2, "scale": 0.1, "unit": "°C" },
-      { "name": "lowest_temp",  "start": 2, "length": 2, "scale": 0.1, "unit": "°C" }
+      {
+        "name": "pack_id",
+        "start": 0,
+        "length": 1
+      },
+      {
+        "name": "cell_1",
+        "start": 2,
+        "length": 2,
+        "unit": "mV"
+      }
     ]
   }
 }
@@ -140,36 +156,28 @@ The `can_map.json` file allows flexible mapping of CAN IDs and data layouts. Exa
 
 ## 7. Virtual CAN Sender
 
-The script `udp_can_sender.py` randomly generates data and sends UDP packets formatted like:
-```
-100:0A1B2C...
-```
+The script `udp_can_sender.py` simulates battery data for testing:
+- Generates realistic voltage and temperature values
+- Simulates 10 battery groups
+- Sends data at configurable rate
+- Supports command-line configuration
 
-This mimics real CAN frames from the ESP32 and is useful for offline testing.
+Usage:
+```bash
+python3 udp_can_sender.py [--ip IP] [--port PORT] [--rate RATE] [--boards BOARD_IDS]
+```
 
 ---
 
 ## 8. Extending the Dashboard
 
 ### Add a new signal:
-1. Edit `can_map.json`:
-```json
-"0x105": {
-  "signals": [
-    { "name": "battery_soc", "start": 0, "length": 1, "scale": 1, "unit": "%" }
-  ]
-}
-```
-
-2. Add a new div to `index.html`:
-```html
-<div class="label">Battery SoC</div>
-<div id="battery_soc" class="value">---</div>
-```
-
-3. Restart the server:
+1. Edit `can_map.json` to add new CAN IDs and signals
+2. Update the frontend JavaScript in `static/js/main.js`
+3. Add corresponding UI elements in `templates/index.html`
+4. Restart the server:
 ```bash
-python app.py
+python3 app.py
 ```
 
 ---
@@ -179,9 +187,9 @@ python app.py
 | Issue                            | Fix                                                  |
 |----------------------------------|-------------------------------------------------------|
 | Port 1234 already in use         | Change UDP port in `app.py`                          |
-| No data appearing on dashboard   | Check if ESP32 or `udp_can_sender.py` is sending     |
+| No data appearing on dashboard   | Check if `udp_can_sender.py` is running              |
 | WebSocket not updating UI        | Open browser console (F12) and check for JS errors   |
-| “ModuleNotFoundError” on launch  | Activate virtual environment & install dependencies  |
+| "ModuleNotFoundError" on launch  | Activate virtual environment & install dependencies  |
 
 ---
 

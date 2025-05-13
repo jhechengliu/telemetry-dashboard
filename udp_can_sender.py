@@ -22,7 +22,16 @@ DEFAULT_TARGET_IP = "127.0.0.1"
 DEFAULT_TARGET_PORT = 1234
 DEFAULT_RATE_HZ = 10
 
-# Signal states and parameters
+# CAN ID bases
+CV1_BASE = 0x12905301  # Cell voltages 1-3
+CV2_BASE = 0x12905381  # Cell voltages 4-6
+CV3_BASE = 0x12905401  # Cell voltages 7-9
+CV4_BASE = 0x12905481  # Cell voltages 10-12
+CT1_BASE = 0x12905601  # Temperatures 1-3
+CT2_BASE = 0x12905681  # Temperatures 4-5
+GPS_CAN_ID = 0x18FEF3FE
+MOTOR_CAN_ID = 0x0A7
+
 class GroupState:
     def __init__(self, group_num):
         self.group_num = group_num
@@ -35,9 +44,9 @@ class GroupState:
         self.temp_trends = [random.uniform(-0.5, 0.5) for _ in range(5)]
 
 class SignalState:
-    def __init__(self):
-        # Initialize 10 groups
-        self.groups = [GroupState(i+1) for i in range(10)]
+    def __init__(self, board_ids):
+        # Initialize specified groups
+        self.groups = [GroupState(board_id) for board_id in board_ids]
         # Simulation parameters
         self.running = True
         self.packets_sent = 0
@@ -93,15 +102,36 @@ def simulate_step(state, time_delta):
 
     return state
 
-def run_simulation(target_ip, target_port, rate_hz):
+def simulate_gps():
+    # Simulate a random walk around a fixed point
+    base_lat = 25.033964
+    base_lon = 121.564468
+    lat = base_lat + random.uniform(-0.0005, 0.0005)
+    lon = base_lon + random.uniform(-0.0005, 0.0005)
+    lat_raw = int(lat * 1e7)
+    lon_raw = int(lon * 1e7)
+    data = struct.pack('<ii', lat_raw, lon_raw)
+    return data
+
+def simulate_motor():
+    # Simulate current and torque
+    current = random.uniform(-100, 100)  # A
+    torque = random.uniform(-300, 300)   # Nm
+    current_raw = int(current * 10)
+    torque_raw = int(torque * 10)
+    data = struct.pack('<hh', current_raw, torque_raw)
+    return data
+
+def run_simulation(target_ip, target_port, rate_hz, board_ids):
     """Run the UDP CAN sender simulation"""
     global global_state
-    global_state = SignalState()
+    global_state = SignalState(board_ids)
     state = global_state
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     interval = 1.0 / rate_hz
     
     logger.info(f"Starting CAN UDP sender - targeting {target_ip}:{target_port} at {rate_hz}Hz")
+    logger.info(f"Simulating boards: {board_ids}")
     
     # Register signal handlers
     signal.signal(signal.SIGINT, signal_handler)
@@ -123,27 +153,55 @@ def run_simulation(target_ip, target_port, rate_hz):
             # Create and send CAN frames for each group
             try:
                 for group in state.groups:
-                    # Send voltages (3 frames per group, 4 voltages per frame)
-                    for i in range(0, 12, 4):
-                        can_id = 0x100 + (group.group_num * 10) + (i // 4)
-                        data = b''
-                        for j in range(4):
-                            if i + j < 12:
-                                data += phys_to_raw(group.voltages[i + j], 1)
-                            else:
-                                data += b'\x00\x00'
-                        frame = build_frame(can_id, data)
-                        sock.sendto(frame.encode(), (target_ip, target_port))
-                        state.packets_sent += 1
-
-                    # Send temperatures (1 frame per group, all 5 temperatures)
-                    can_id = 0x100 + (group.group_num * 10) + 3
-                    data = b''
-                    for temp in group.temperatures:
-                        data += phys_to_raw(temp, 0.1)
-                    frame = build_frame(can_id, data)
+                    # Send cell voltages (4 frames per group)
+                    # CV1: Cells 1-3
+                    data = bytes([group.group_num]) + b''.join(phys_to_raw(v, 1) for v in group.voltages[0:3])
+                    frame = build_frame(CV1_BASE, data)
                     sock.sendto(frame.encode(), (target_ip, target_port))
                     state.packets_sent += 1
+
+                    # CV2: Cells 4-6
+                    data = bytes([group.group_num]) + b''.join(phys_to_raw(v, 1) for v in group.voltages[3:6])
+                    frame = build_frame(CV2_BASE, data)
+                    sock.sendto(frame.encode(), (target_ip, target_port))
+                    state.packets_sent += 1
+
+                    # CV3: Cells 7-9
+                    data = bytes([group.group_num]) + b''.join(phys_to_raw(v, 1) for v in group.voltages[6:9])
+                    frame = build_frame(CV3_BASE, data)
+                    sock.sendto(frame.encode(), (target_ip, target_port))
+                    state.packets_sent += 1
+
+                    # CV4: Cells 10-12
+                    data = bytes([group.group_num]) + b''.join(phys_to_raw(v, 1) for v in group.voltages[9:12])
+                    frame = build_frame(CV4_BASE, data)
+                    sock.sendto(frame.encode(), (target_ip, target_port))
+                    state.packets_sent += 1
+
+                    # Send temperatures (2 frames per group)
+                    # CT1: Temperatures 1-3
+                    data = bytes([group.group_num]) + b''.join(phys_to_raw(t, 0.1) for t in group.temperatures[0:3])
+                    frame = build_frame(CT1_BASE, data)
+                    sock.sendto(frame.encode(), (target_ip, target_port))
+                    state.packets_sent += 1
+
+                    # CT2: Temperatures 4-5
+                    data = bytes([group.group_num]) + b''.join(phys_to_raw(t, 0.1) for t in group.temperatures[3:5])
+                    frame = build_frame(CT2_BASE, data)
+                    sock.sendto(frame.encode(), (target_ip, target_port))
+                    state.packets_sent += 1
+                
+                # Send GPS frame
+                gps_data = simulate_gps()
+                gps_frame = build_frame(GPS_CAN_ID, gps_data)
+                sock.sendto(gps_frame.encode(), (target_ip, target_port))
+                state.packets_sent += 1
+
+                # Send Motor frame
+                motor_data = simulate_motor()
+                motor_frame = build_frame(MOTOR_CAN_ID, motor_data)
+                sock.sendto(motor_frame.encode(), (target_ip, target_port))
+                state.packets_sent += 1
                 
                 # Update statistics
                 state.time_elapsed = time.time() - start_time
@@ -180,6 +238,9 @@ if __name__ == "__main__":
                         help=f'Target UDP port (default: {DEFAULT_TARGET_PORT})')
     parser.add_argument('--rate', type=float, default=DEFAULT_RATE_HZ,
                         help=f'Send rate in Hz (default: {DEFAULT_RATE_HZ})')
+    parser.add_argument('--boards', type=str, default='0,1,2,3,4,5,6,7,8,9',
+                        help='Comma-separated list of board IDs to simulate (default: 0,1,2,3,4,5,6,7,8,9)')
     
     args = parser.parse_args()
-    run_simulation(args.ip, args.port, args.rate)
+    board_ids = [int(x) for x in args.boards.split(',')]
+    run_simulation(args.ip, args.port, args.rate, board_ids)

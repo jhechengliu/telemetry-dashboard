@@ -47,5 +47,78 @@
       { "name": "speed", "start": 0, "length": 2, "scale": 0.1, "unit": "km/h", "description": "Vehicle speed" },
       { "name": "acceleration", "start": 2, "length": 2, "scale": 0.01, "unit": "g", "description": "Vehicle acceleration" }
     ]
+  },
+  "0x12905301": {
+    "name": "CV1",
+    "description": "Cell Voltages 1-3",
+    "signals": [
+      { "name": "pack_id", "start": 0, "length": 1, "unit": "" },
+      { "name": "cell_1", "start": 1, "length": 2, "unit": "mV" },
+      { "name": "cell_2", "start": 3, "length": 2, "unit": "mV" },
+      { "name": "cell_3", "start": 5, "length": 2, "unit": "mV" }
+    ]
+  },
+  "0x12905381": {
+    "name": "CV2",
+    "description": "Cell Voltages 4-6",
+    "signals": [
+      { "name": "pack_id", "start": 0, "length": 1, "unit": "" },
+      { "name": "cell_4", "start": 1, "length": 2, "unit": "mV" },
+      { "name": "cell_5", "start": 3, "length": 2, "unit": "mV" },
+      { "name": "cell_6", "start": 5, "length": 2, "unit": "mV" }
+    ]
+  },
+  "0x12905401": {
+    "name": "CV3",
+    "description": "Cell Voltages 7-9",
+    "signals": [
+      { "name": "pack_id", "start": 0, "length": 1, "unit": "" },
+      { "name": "cell_7", "start": 1, "length": 2, "unit": "mV" },
+      { "name": "cell_8", "start": 3, "length": 2, "unit": "mV" },
+      { "name": "cell_9", "start": 5, "length": 2, "unit": "mV" }
+    ]
+  },
+  "0x12905481": {
+    "name": "CV4",
+    "description": "Cell Voltages 10-12",
+    "signals": [
+      { "name": "pack_id", "start": 0, "length": 1, "unit": "" },
+      { "name": "cell_10", "start": 1, "length": 2, "unit": "mV" },
+      { "name": "cell_11", "start": 3, "length": 2, "unit": "mV" },
+      { "name": "cell_12", "start": 5, "length": 2, "unit": "mV" }
+    ]
+  },
+  "0x12905601": {
+    "name": "CT1",
+    "description": "Temperatures 1-3",
+    "signals": [
+      { "name": "pack_id", "start": 0, "length": 1, "unit": "" },
+      { "name": "temp_1", "start": 1, "length": 2, "unit": "°C", "scale": 0.1 },
+      { "name": "temp_2", "start": 3, "length": 2, "unit": "°C", "scale": 0.1 },
+      { "name": "temp_3", "start": 5, "length": 2, "unit": "°C", "scale": 0.1 }
+    ]
+  },
+  "0x12905681": {
+    "name": "CT2",
+    "description": "Temperatures 4-5",
+    "signals": [
+      { "name": "pack_id", "start": 0, "length": 1, "unit": "" },
+      { "name": "temp_4", "start": 1, "length": 2, "unit": "°C", "scale": 0.1 },
+      { "name": "temp_5", "start": 3, "length": 2, "unit": "°C", "scale": 0.1 }
+    ]
+  },
+  "0x18FEF3FE": {
+    "name": "GPS",
+    "signals": [
+      { "name": "latitude", "start": 0, "length": 4, "scale": 1e-7, "unit": "deg" },
+      { "name": "longitude", "start": 4, "length": 4, "scale": 1e-7, "unit": "deg" }
+    ]
+  },
+  "0x0A7": {
+    "name": "Motor_Current_Torque",
+    "signals": [
+      { "name": "motor_current", "start": 0, "length": 2, "scale": 0.1, "unit": "A" },
+      { "name": "motor_torque", "start": 2, "length": 2, "scale": 0.1, "unit": "Nm" }
+    ]
   }
 }

@@ -1,8 +1,8 @@
-# Telemetry Dashboard — 即時 CAN 數據儀表板（中文版）
+# 電池組監控儀表板 — 即時 CAN 數據顯示（中文版）
 
 ## 專案簡介
 
-本專案提供一個即時網頁儀表板，用於監控 ESP32 透過 UDP 傳送的 CAN 匯流排數據。系統使用 Flask 與 Flask-SocketIO 來接收、解碼並即時顯示數據，支援彈性的 JSON 訊號對應設定，並可用內建模擬器進行測試。
+本專案提供一個即時網頁儀表板，用於監控電池組數據。系統使用 Flask 與 Flask-SocketIO 來接收、解碼並即時顯示數據，支援監控 10 個電池組，每個電池組包含 12 個電壓讀數和 5 個溫度感測器，並提供可折疊的 UI 介面以更好地組織數據。
 
 ---
 
@@ -23,23 +23,26 @@
 ## 1. 系統架構
 
 ```
-ESP32 (CAN → UDP) ──> [UDP 監聽執行緒] ──> [Flask + SocketIO] ──> [瀏覽器儀表板]
+[UDP 監聽執行緒] ──> [Flask + SocketIO] ──> [瀏覽器儀表板]
 ```
 
-- ESP32 讀取 CAN 訊息並透過 UDP 傳送。
-- Flask 執行緒負責監聽 UDP 封包。
-- 解析後的數值透過 WebSocket (Socket.IO) 即時推送到前端。
-- 儀表板 UI 會即時更新。
+- UDP 封包包含電池組的 CAN 訊息
+- Flask 執行緒負責監聽 UDP 封包
+- 解析後的數值透過 WebSocket (Socket.IO) 即時推送到前端
+- 儀表板 UI 會即時更新
+- 數據以可折疊的電池組形式組織
 
 ---
 
 ## 2. 主要功能
 
-- **即時更新**：WebSocket 無需輪詢。
-- **彈性訊號解析**：可自訂 `can_map.json`。
-- **內建模擬器**：方便離線測試。
-- **依賴簡單**：Flask、Flask-SocketIO、Eventlet。
-- **行動裝置友善**。
+- **電池組監控**：10 個電池組，每組 12 個電壓和 5 個溫度讀數
+- **可折疊介面**：可展開/收合電池組以更好地組織數據
+- **即時更新**：WebSocket 無需輪詢
+- **彈性訊號解析**：可自訂 `can_map.json`
+- **內建模擬器**：方便離線測試
+- **依賴簡單**：Flask、Flask-SocketIO、Eventlet
+- **行動裝置友善**：響應式設計
 
 ---
 
@@ -56,7 +59,10 @@ telemetry-dashboard/
 │   └── index.html         # 前端 UI
 │
 └── static/
-    └── style.css          # 樣式表
+    ├── css/
+    │   └── style.css      # 樣式表
+    └── js/
+        └── main.js        # 前端 JavaScript 程式碼
 ```
 
 ---
@@ -70,9 +76,14 @@ telemetry-dashboard/
 ### 安裝步驟
 
 ```bash
+# 複製或解壓縮專案資料夾
 cd telemetry-dashboard
-python3 -m venv venv
-source venv/bin/activate
+
+# (選擇性) 建立虛擬環境
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 安裝必要套件
 pip install flask flask-socketio eventlet
 ```
 
@@ -82,49 +93,91 @@ pip install flask flask-socketio eventlet
 
 ### 啟動 Flask 伺服器
 ```bash
-python app.py
+python3 app.py
 ```
 
 ### 開啟瀏覽器
 ```
-http://localhost:5000
+http://localhost:5001
 ```
+
+您將看到一個包含以下內容的儀表板：
+- 10 個可折疊的電池組
+- 每組 12 個電壓讀數
+- 每組 5 個溫度讀數
+- 連接狀態和統計資訊
 
 ### （可選）啟動模擬器
 ```bash
-python udp_can_sender.py
+python3 udp_can_sender.py
 ```
 
 ---
 
 ## 6. CAN 訊號對應設定 (`can_map.json`)
 
-`can_map.json` 允許你自訂 CAN ID 與資料格式。例如：
+`can_map.json` 定義了電池數據的 CAN 訊息結構。例如：
 
 ```json
 {
-  "0x100": {
+  "0x12905301": {
+    "name": "CV1",
+    "description": "Cell Voltages 1-3",
     "signals": [
-      { "name": "highest_temp", "start": 0, "length": 2, "scale": 0.1, "unit": "°C" },
-      { "name": "lowest_temp",  "start": 2, "length": 2, "scale": 0.1, "unit": "°C" }
+      {
+        "name": "pack_id",
+        "start": 0,
+        "length": 1
+      },
+      {
+        "name": "cell_1",
+        "start": 2,
+        "length": 2,
+        "unit": "mV"
+      }
     ]
   }
 }
 ```
 
+### 欄位說明：
+| 欄位      | 說明                                      |
+|-----------|------------------------------------------|
+| `name`    | 訊號名稱（用於 HTML 元素 ID）             |
+| `start`   | CAN 資料中的位元組偏移量                  |
+| `length`  | 此訊號使用的位元組數                      |
+| `scale`   | 原始值的乘數                              |
+| `unit`    | 儀表板顯示的單位                          |
+
+**注意**：所有值都假設為小端序的無符號整數。
+
 ---
 
 ## 7. 虛擬 CAN 發送器
 
-`udp_can_sender.py` 會隨機產生數據並以 UDP 格式發送，方便測試。
+`udp_can_sender.py` 用於模擬電池數據進行測試：
+- 產生真實的電壓和溫度值
+- 模擬 10 個電池組
+- 可設定發送速率
+- 支援命令列配置
+
+使用方式：
+```bash
+python3 udp_can_sender.py [--ip IP] [--port PORT] [--rate RATE] [--boards BOARD_IDS]
+```
 
 ---
 
 ## 8. 擴充儀表板
 
-1. 編輯 `can_map.json` 新增訊號。
-2. 在 `index.html` 增加對應欄位。
-3. 重新啟動伺服器。
+### 新增訊號：
+1. 編輯 `can_map.json` 新增 CAN ID 和訊號
+2. 更新 `static/js/main.js` 中的前端 JavaScript
+3. 在 `templates/index.html` 中新增對應的 UI 元素
+4. 重新啟動伺服器：
+```bash
+python3 app.py
+```
 
 ---
 
@@ -132,14 +185,4 @@ python udp_can_sender.py
 
 | 問題 | 解決方式 |
 |------|----------|
-| 1234 埠被佔用 | 修改 `app.py` 的 UDP 埠 |
-| 儀表板無數據 | 確認 ESP32 或模擬器有發送資料 |
-| 前端無即時更新 | 檢查瀏覽器 Console 是否有錯誤 |
-| 啟動時缺少模組 | 請先啟動虛擬環境並安裝依賴 |
-
----
-
-## 聯絡方式
-
-開發者：[你的名字/團隊]  
-聯絡信箱：[your.email@example.com] 
+| 1234 埠被佔用 | 修改 `

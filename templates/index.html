@@ -3,74 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telemetry Dashboard</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <title>Battery Telemetry Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
-  <div id="status-indicator" class="offline"></div>
-  <h1>Telemetry Dashboard</h1>
-  
-  <div class="battery-groups">
-    <!-- Groups will be dynamically populated here -->
+  <div class="container">
+    <header>
+      <h1>Battery Telemetry Dashboard</h1>
+      <div class="status-container">
+        <span id="status" class="status disconnected">Disconnected</span>
+        <div id="stats" class="stats"></div>
+      </div>
+    </header>
+
+    <main id="groups-container">
+      <section class="info-section">
+        <h2>GPS</h2>
+        <div>
+          <span class="label">Latitude:</span> <span id="gps-latitude">--</span>
+          <span class="label">Longitude:</span> <span id="gps-longitude">--</span>
+        </div>
+      </section>
+      <section class="info-section">
+        <h2>Motor</h2>
+        <div>
+          <span class="label">RPM:</span> <span id="motor-rpm">--</span>
+          <span class="label">Temp:</span> <span id="motor-temp">--</span>
+          <span class="label">Current:</span> <span id="motor-current">--</span>
+          <span class="label">Torque:</span> <span id="motor-torque">--</span>
+        </div>
+      </section>
+      <!-- Groups will be dynamically populated here -->
+      {% for i in range(10) %}
+      <div class="group" id="group-{{ i }}">
+        <div class="group-header" onclick="toggleGroup({{ i }})">
+          <h2>Battery Group {{ i + 1 }}</h2>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="group-content">
+          <div class="voltages">
+            <h3>Voltages</h3>
+            <div class="grid">
+              {% for j in range(12) %}
+              <div class="cell">
+                <span class="label">V{{ j + 1 }}</span>
+                <span class="value voltage-{{ j + 1 }}">--</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="temperatures">
+            <h3>Temperatures</h3>
+            <div class="grid">
+              {% for j in range(5) %}
+              <div class="cell">
+                <span class="label">T{{ j + 1 }}</span>
+                <span class="value temp-{{ j + 1 }}">--</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </main>
   </div>
 
   <script>
-    const socket = io();
-    let connectionTimeout;
-    
-    // Define thresholds for warning and danger levels
-    const thresholds = {
-      voltage: { warning: 3800, danger: 3700 },
-      temperature: { warning: 45, danger: 55 }
-    };
-
-    // Create battery groups
-    function createBatteryGroups() {
-      const container = document.querySelector('.battery-groups');
-      for (let group = 1; group <= 10; group++) {
-        const groupDiv = document.createElement('div');
-        groupDiv.className = 'battery-group';
-        groupDiv.innerHTML = `
-          <div class="group-header" onclick="toggleGroup(${group})">
-            <span class="group-title">Group ${group}</span>
-            <span class="group-status"></span>
-            <span class="toggle-icon">▶</span>
-          </div>
-          <div class="group-content" id="group-${group}">
-            <div class="voltage-section">
-              <h3>Battery Voltages</h3>
-              <div class="voltage-grid" id="group-${group}-voltages">
-                ${Array(12).fill().map((_, i) => `
-                  <div class="voltage-cell">
-                    <span class="label">Cell ${i + 1}</span>
-                    <span class="value" id="group-${group}-voltage-${i + 1}">---</span>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            <div class="temperature-section">
-              <h3>Temperatures</h3>
-              <div class="temperature-grid" id="group-${group}-temperatures">
-                ${Array(5).fill().map((_, i) => `
-                  <div class="temperature-cell">
-                    <span class="label">Temp ${i + 1}</span>
-                    <span class="value" id="group-${group}-temp-${i + 1}">---</span>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          </div>
-        `;
-        container.appendChild(groupDiv);
-      }
-    }
-
-    // Toggle group visibility
-    function toggleGroup(groupNum) {
-      const content = document.getElementById(`group-${groupNum}`);
-      const header = content.previousElementSibling;
-      const icon = header.querySelector('.toggle-icon');
+    function toggleGroup(groupId) {
+      const group = document.getElementById(`group-${groupId}`);
+      const content = group.querySelector('.group-content');
+      const icon = group.querySelector('.toggle-icon');
       
       if (content.style.display === 'none') {
         content.style.display = 'block';
@@ -81,93 +85,13 @@
       }
     }
 
-    // Connect status indicator
-    socket.on("connect", () => {
-      document.getElementById("status-indicator").classList.remove("offline");
-      clearTimeout(connectionTimeout);
+    // Initialize all groups as expanded
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.group-content').forEach(content => {
+        content.style.display = 'block';
+      });
     });
-    
-    socket.on("disconnect", () => {
-      document.getElementById("status-indicator").classList.add("offline");
-    });
-    
-    socket.on("update", payload => {
-      const el = document.getElementById(payload.name);
-      if (el) {
-        // Format value to two decimal places and add unit
-        el.textContent = payload.value.toFixed(2) + " " + payload.unit;
-        
-        // Remove all state classes
-        el.classList.remove("warning", "danger", "success");
-        
-        // Apply threshold-based styling
-        if (payload.name.includes('voltage')) {
-          if (payload.value <= thresholds.voltage.danger) {
-            el.classList.add("danger");
-          } else if (payload.value <= thresholds.voltage.warning) {
-            el.classList.add("warning");
-          } else {
-            el.classList.add("success");
-          }
-        } else if (payload.name.includes('temp')) {
-          if (payload.value >= thresholds.temperature.danger) {
-            el.classList.add("danger");
-          } else if (payload.value >= thresholds.temperature.warning) {
-            el.classList.add("warning");
-          } else {
-            el.classList.add("success");
-          }
-        }
-        
-        // Add highlight animation
-        el.classList.add("updated");
-        setTimeout(() => {
-          el.classList.remove("updated");
-        }, 1000);
-
-        // Update group status
-        updateGroupStatus(payload);
-      }
-    });
-
-    function updateGroupStatus(payload) {
-      // Extract group number from payload name
-      const match = payload.name.match(/group-(\d+)/);
-      if (match) {
-        const groupNum = match[1];
-        const groupStatus = document.querySelector(`#group-${groupNum}`).previousElementSibling.querySelector('.group-status');
-        
-        // Count warning and danger states in the group
-        const group = document.getElementById(`group-${groupNum}`);
-        const warnings = group.querySelectorAll('.warning').length;
-        const dangers = group.querySelectorAll('.danger').length;
-        
-        if (dangers > 0) {
-          groupStatus.textContent = '⚠️ Critical';
-          groupStatus.className = 'group-status danger';
-        } else if (warnings > 0) {
-          groupStatus.textContent = '⚠️ Warning';
-          groupStatus.className = 'group-status warning';
-        } else {
-          groupStatus.textContent = '✓ Normal';
-          groupStatus.className = 'group-status success';
-        }
-      }
-    }
-    
-    // Check connection status every 5 seconds
-    function checkConnection() {
-      connectionTimeout = setTimeout(() => {
-        if (!socket.connected) {
-          document.getElementById("status-indicator").classList.add("offline");
-        }
-        checkConnection();
-      }, 5000);
-    }
-    
-    // Initialize the dashboard
-    createBatteryGroups();
-    checkConnection();
   </script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
